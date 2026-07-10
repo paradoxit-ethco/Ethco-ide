@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ptyWrite: (id, data) => ipcRenderer.invoke("pty:write", id, data),
   ptyResize: (id, cols, rows) => ipcRenderer.invoke("pty:resize", id, cols, rows),
   ptyKill: (id) => ipcRenderer.invoke("pty:kill", id),
+  setProxy: (rules) => ipcRenderer.invoke("network:setProxy", rules),
   onPtyData: (callback) => {
     const handler = (_event, id, data) => callback(id, data)
     ipcRenderer.on("pty:data", handler)

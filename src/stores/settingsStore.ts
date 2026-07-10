@@ -59,6 +59,7 @@ const defaults = {
   agentPanelOpen: true,
   agentBaseUrl: "https://api.opencode.ai/v1",
   agentApiKey: "",
+  networkProxy: "",
 }
 
 const saved = loadSettings()
@@ -123,5 +124,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setAgentApiKey: (key) => {
     set({ agentApiKey: key })
     saveSettings({ agentApiKey: key })
+  },
+
+  setNetworkProxy: (proxy) => {
+    set({ networkProxy: proxy })
+    saveSettings({ networkProxy: proxy })
+    const api = (window as any).electronAPI
+    if (api?.setProxy) {
+      api.setProxy(proxy)
+    }
   },
 }))
