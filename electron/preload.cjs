@@ -18,7 +18,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   gitCommit: (message, cwd) => ipcRenderer.invoke("git:commit", message, cwd),
   gitLog: (maxCount, cwd) => ipcRenderer.invoke("git:log", maxCount, cwd),
   gitDiff: (filePath, cwd) => ipcRenderer.invoke("git:diff", filePath, cwd),
-  ptySpawn: (id, cwd) => ipcRenderer.invoke("pty:spawn", id, cwd),
+  ptySpawn: (id, cwd, cols, rows, shell) => ipcRenderer.invoke("pty:spawn", id, cwd, cols, rows, shell),
   ptyWrite: (id, data) => ipcRenderer.invoke("pty:write", id, data),
   ptyResize: (id, cols, rows) => ipcRenderer.invoke("pty:resize", id, cols, rows),
   ptyKill: (id) => ipcRenderer.invoke("pty:kill", id),

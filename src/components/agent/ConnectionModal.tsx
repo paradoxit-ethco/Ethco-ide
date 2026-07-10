@@ -12,7 +12,6 @@ export function ConnectionModal({ open, onClose }: ConnectionModalProps) {
   const doConnect = useConnectionStore((s) => s.connect)
   const connecting = useConnectionStore((s) => s.connecting)
   const error = useConnectionStore((s) => s.error)
-  const availableModels = useConnectionStore((s) => s.availableModels)
   const [local, setLocal] = useState(config)
   const [fetchedModels, setFetchedModels] = useState<string[]>([])
 

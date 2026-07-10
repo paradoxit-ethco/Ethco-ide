@@ -185,7 +185,7 @@ export class ElectronFS implements FSProvider {
   }
 
   async listDirectory(path: string): Promise<FileEntry[]> {
-    const entries = await this.api.readDir(path)
+    const entries = (await this.api.readDir(path)) || []
     return entries.map((e: any) => ({
       name: e.name,
       path: this.normalize(`${path}/${e.name}`),
@@ -242,7 +242,7 @@ export class TauriFS implements FSProvider {
 
   async listDirectory(path: string): Promise<FileEntry[]> {
     const { invoke } = await import("@tauri-apps/api/core")
-    return invoke<FileEntry[]>("list_directory", { path })
+    return (await invoke<FileEntry[]>("list_directory", { path })) || []
   }
 
   async createFile(path: string): Promise<void> {

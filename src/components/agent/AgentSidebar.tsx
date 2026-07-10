@@ -36,7 +36,7 @@ export function AgentSidebar() {
               onClick={() => setSidebarOpen(false)}
               className="text-xs px-1.5 py-0.5 rounded hover:bg-white/10 text-text-muted hover:text-[var(--text)] transition-colors"
             >
-              \u2715
+              ✕
             </button>
           </div>
 
@@ -100,7 +100,7 @@ export function AgentSidebar() {
               onClick={() => setSidebarOpen(false)}
               className="text-xs px-1.5 py-0.5 rounded hover:bg-white/10 text-text-muted hover:text-[var(--text)] transition-colors"
             >
-              \u2715
+              ✕
             </button>
           </div>
         </div>
@@ -139,11 +139,13 @@ export function AgentSidebar() {
           )}
         </div>
 
-        <div className="border-t border-[var(--border)] p-2 space-y-2">
+        <div className="border-t border-[var(--border)] p-3 space-y-2 bg-[var(--surface)]">
           <div className="flex items-center justify-between">
             <ModelPicker />
           </div>
-          <ChatInput />
+          <div className="relative">
+            <ChatInput />
+          </div>
         </div>
       </div>
       <ConnectionModal open={showConnect} onClose={() => setShowConnect(false)} />

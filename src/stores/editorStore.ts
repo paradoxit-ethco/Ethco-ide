@@ -13,7 +13,7 @@ interface EditorState {
   tabs: Tab[]
   activeTab: string | null
   cursorLine: number | null
-  openFile: (path: string, name: string, content: string, language: string) => void
+  openFile: (path: string, content: string) => void
   updateContent: (path: string, content: string) => void
   markClean: (path: string) => void
   closeTab: (path: string) => void
@@ -27,11 +27,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   activeTab: null,
   cursorLine: null,
 
-  openFile: (path, name, content, language) => {
+  openFile: (path, content) => {
     const existing = get().tabs.find((t) => t.path === path)
     if (existing) {
       set({ activeTab: path })
     } else {
+      const name = path.split("/").pop() || "untitled"
+      const ext = name.split(".").pop()?.toLowerCase()
+      const languageMap: Record<string, string> = {
+        ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript",
+        py: "python", rs: "rust", go: "go", c: "c", cpp: "cpp", java: "java",
+        html: "html", css: "css", json: "json", md: "markdown", yml: "yaml", yaml: "yaml",
+        sh: "shell", bat: "bat", xml: "xml", sql: "sql"
+      }
+      const language = languageMap[ext ?? ""] || "plaintext"
+
       set((s) => ({
         tabs: [...s.tabs, { path, name, content, originalContent: content, language, isDirty: false }],
         activeTab: path,

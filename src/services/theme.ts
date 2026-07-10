@@ -3,17 +3,18 @@ export type ThemeMode = "dark" | "light"
 const THEME_KEY = "ethco-theme"
 
 const darkTheme = {
-  accent: "#6366f1",
-  accentLight: "#818cf8",
-  accentDark: "#4f46e5",
-  surface: "#1e1e2e",
-  surfaceAlt: "#181825",
-  border: "#313244",
-  text: "#cdd6f4",
-  textMuted: "#6c7086",
-  error: "#f38ba8",
-  success: "#a6e3a1",
-  warning: "#f9e2af",
+  accent: "#3b82f6",
+  accentLight: "#60a5fa",
+  accentDark: "#2563eb",
+  surface: "#0a0e1a",
+  surfaceAlt: "#0f1525",
+  border: "#1e293b",
+  borderLight: "#2a3a54",
+  text: "#e2e8f0",
+  textMuted: "#64748b",
+  error: "#ef4444",
+  success: "#22c55e",
+  warning: "#eab308",
 }
 
 const lightTheme = {

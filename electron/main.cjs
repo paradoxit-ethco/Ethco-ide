@@ -2,7 +2,8 @@ const { app, BrowserWindow, ipcMain, dialog } = require("electron")
 const path = require("path")
 const http = require("http")
 const fs = require("fs")
-const { execSync, spawn } = require("child_process")
+const { execSync } = require("child_process")
+const pty = require("node-pty")
 
 const DEV_SERVER = process.env.VITE_DEV_SERVER_URL || "http://localhost:5175"
 let mainWindow = null
@@ -128,65 +129,70 @@ async function createWindow() {
     return execSync(`git diff -- "${filePath}"`, { cwd, encoding: "utf-8" }).trim()
   })
 
-  // ── PTY (Terminal) ──
+  // ── PTY (Terminal) via node-pty (ConPTY on Windows) ──
   const ptyProcesses = new Map()
 
-  ipcMain.handle("pty:spawn", (_event, id, cwd) => {
+  function detectShell() {
+    if (process.platform === "win32") {
+      const comspec = process.env.COMSPEC
+      if (comspec && comspec.toLowerCase().includes("powershell")) return comspec
+      return "powershell.exe"
+    }
+    return process.env.SHELL || "/bin/bash"
+  }
+
+  ipcMain.handle("pty:spawn", (_event, id, cwd, cols, rows, shell) => {
     if (ptyProcesses.has(id)) {
       ptyProcesses.get(id).kill()
       ptyProcesses.delete(id)
     }
-    const shell = process.platform === "win32" 
-      ? { cmd: "cmd.exe", args: [] }
-      : { cmd: process.env.SHELL || "bash", args: [] }
-    const proc = spawn(shell.cmd, shell.args, {
+
+    const shellPath = shell || detectShell()
+    const shellArgs = process.platform === "win32" ? [] : ["--login"]
+    const term = pty.spawn(shellPath, shellArgs, {
+      name: "xterm-256color",
+      cols: cols || 80,
+      rows: rows || 24,
       cwd: cwd || process.env.HOME || process.env.USERPROFILE,
       env: { ...process.env, TERM: "xterm-256color" },
-      stdio: ["pipe", "pipe", "pipe"],
     })
-    ptyProcesses.set(id, proc)
 
-    proc.stdout.on("data", (data) => {
+    ptyProcesses.set(id, term)
+
+    term.onData((data) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("pty:data", id, data.toString())
+        mainWindow.webContents.send("pty:data", id, data)
       }
     })
-    proc.stderr.on("data", (data) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("pty:data", id, data.toString())
-      }
-    })
-    proc.on("exit", (code) => {
+
+    term.onExit(({ exitCode }) => {
       ptyProcesses.delete(id)
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("pty:exit", id, code)
+        mainWindow.webContents.send("pty:exit", id, exitCode)
       }
     })
-    proc.on("error", () => {
-      ptyProcesses.delete(id)
-    })
+
     return true
   })
 
   ipcMain.handle("pty:write", (_event, id, data) => {
-    const proc = ptyProcesses.get(id)
-    if (proc && proc.stdin.writable) {
-      proc.stdin.write(data)
+    const term = ptyProcesses.get(id)
+    if (term) {
+      term.write(data)
     }
   })
 
   ipcMain.handle("pty:resize", (_event, id, cols, rows) => {
-    const proc = ptyProcesses.get(id)
-    if (proc && proc.stdout.setCols) {
-      proc.stdout.setCols(cols)
-      proc.stdout.setRows(rows)
+    const term = ptyProcesses.get(id)
+    if (term) {
+      term.resize(cols, rows)
     }
   })
 
   ipcMain.handle("pty:kill", (_event, id) => {
-    const proc = ptyProcesses.get(id)
-    if (proc) {
-      proc.kill()
+    const term = ptyProcesses.get(id)
+    if (term) {
+      term.kill()
       ptyProcesses.delete(id)
     }
   })

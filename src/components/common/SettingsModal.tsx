@@ -94,6 +94,42 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             </div>
           </Section>
 
+          <Section label="Terminal">
+            <div className="space-y-2.5">
+              <Row label="Shell Path">
+                <input
+                  type="text"
+                  value={settings.terminalShell}
+                  onChange={(e) => settings.setTerminalShell(e.target.value)}
+                  placeholder="auto-detect"
+                  className="flex-1 bg-surface border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs text-[var(--text)] outline-none focus:border-accent font-mono transition-colors"
+                />
+              </Row>
+              <Row label="Scrollback">
+                <input
+                  type="number"
+                  min={100}
+                  max={50000}
+                  step={100}
+                  value={settings.terminalScrollback}
+                  onChange={(e) => settings.setTerminalScrollback(Number(e.target.value))}
+                  className="w-20 bg-surface border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-[var(--text)] outline-none focus:border-accent text-center transition-colors"
+                />
+              </Row>
+              <Row label="Cursor Style">
+                <select
+                  value={settings.terminalCursorStyle}
+                  onChange={(e) => settings.setTerminalCursorStyle(e.target.value as "bar" | "block" | "underline")}
+                  className="bg-surface border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs text-[var(--text)] outline-none focus:border-accent transition-colors"
+                >
+                  <option value="bar">Bar</option>
+                  <option value="block">Block</option>
+                  <option value="underline">Underline</option>
+                </select>
+              </Row>
+            </div>
+          </Section>
+
           <Section label="Keyboard Shortcuts">
             <div className="text-xs text-text-muted space-y-0.5">
               <Shortcut keys="Ctrl+S" desc="Save file" />

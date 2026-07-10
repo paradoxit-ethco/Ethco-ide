@@ -27,16 +27,20 @@ export function TerminalPanel({ projectPath }: { projectPath?: string }) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const fontSize = useSettingsStore((s) => s.fontSize)
   const fontFamily = useSettingsStore((s) => s.fontFamily)
+  const terminalShell = useSettingsStore((s) => s.terminalShell)
+  const terminalScrollback = useSettingsStore((s) => s.terminalScrollback)
+  const terminalCursorStyle = useSettingsStore((s) => s.terminalCursorStyle)
 
   const createTab = useCallback(() => {
     const id = `term-${++tabCounter}`
+    const shellLabel = terminalShell ? terminalShell.split(/[\\/]/).pop()! : detectShell()
     const tab: PtyTab = {
-      id, label: detectShell(), term: null, fitAddon: null, disposed: false, cleanup: () => {},
+      id, label: shellLabel, term: null, fitAddon: null, disposed: false, cleanup: () => {},
     }
     setTabs((prev) => [...prev, tab])
     setActiveId(id)
     return id
-  }, [])
+  }, [terminalShell])
 
   useEffect(() => {
     if (tabs.length === 0) createTab()
@@ -63,42 +67,42 @@ export function TerminalPanel({ projectPath }: { projectPath?: string }) {
   }, [fontSize, fontFamily, tabs])
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-[var(--surface)]">
       {/* Tab bar */}
-      <div className="flex items-center px-2 border-b border-[var(--border)] shrink-0 min-h-[28px]">
-        <div className="flex items-center overflow-x-auto">
+      <div className="flex items-center px-3 border-b border-[var(--border)] shrink-0 min-h-[32px] bg-[var(--surface-alt)]">
+        <div className="flex items-center overflow-x-auto gap-1">
           {tabs.map((tab) => (
             <div
               key={tab.id}
-              className={`flex items-center gap-1 px-2.5 py-1 text-[11px] cursor-pointer select-none group ${
+              className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium rounded-t cursor-pointer select-none group border-b-2 transition-all ${
                 tab.id === activeId
-                  ? "text-[var(--text)] bg-surface/40"
-                  : "text-text-muted hover:text-[var(--text)]"
+                  ? "text-[var(--text)] bg-[var(--surface)] border-[var(--accent-light)]"
+                  : "text-text-muted border-transparent hover:text-[var(--text)] hover:bg-white/[0.03]"
               }`}
               onClick={() => setActiveId(tab.id)}
             >
-              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-3 h-3 text-[var(--accent-light)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <polyline points="4 17 10 11 4 5" />
                 <line x1="12" y1="19" x2="20" y2="19" />
               </svg>
-              <span className="truncate max-w-[100px]">{tab.label}</span>
+              <span className="truncate max-w-[120px]">{tab.label}</span>
               <button
                 onClick={(e) => { e.stopPropagation(); removeTab(tab.id) }}
-                className="ml-0.5 opacity-0 group-hover:opacity-60 hover:opacity-100 hover:bg-white/10 rounded p-px leading-none"
+                className="ml-1 opacity-0 group-hover:opacity-60 hover:opacity-100 hover:bg-white/10 rounded p-0.5 transition-opacity"
               >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
           ))}
         </div>
-        <button onClick={() => createTab()} className="ml-1 p-1 rounded text-text-muted hover:text-[var(--text)] hover:bg-white/5 transition-colors" title="New Terminal">
+        <button onClick={() => createTab()} className="ml-2 p-1 rounded text-text-muted hover:text-[var(--text)] hover:bg-white/5 transition-colors" title="New Terminal">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
         <div className="flex-1" />
       </div>
 
       {/* Terminal views */}
-      <div className="flex-1 min-h-0 relative">
+      <div className="flex-1 min-h-0 relative p-2 bg-[var(--surface)]">
         {tabs.map((tab) => (
           <TerminalView
             key={tab.id}
@@ -106,6 +110,9 @@ export function TerminalPanel({ projectPath }: { projectPath?: string }) {
             visible={tab.id === activeId}
             fontSize={fontSize}
             fontFamily={fontFamily}
+            cursorStyle={terminalCursorStyle}
+            scrollback={terminalScrollback}
+            shell={terminalShell}
             projectPath={projectPath}
           />
         ))}
@@ -114,8 +121,8 @@ export function TerminalPanel({ projectPath }: { projectPath?: string }) {
   )
 }
 
-function TerminalView({ tab, visible, fontSize, fontFamily, projectPath }: {
-  tab: PtyTab; visible: boolean; fontSize: number; fontFamily: string; projectPath?: string
+function TerminalView({ tab, visible, fontSize, fontFamily, cursorStyle, scrollback, shell, projectPath }: {
+  tab: PtyTab; visible: boolean; fontSize: number; fontFamily: string; cursorStyle: string; scrollback: number; shell: string; projectPath?: string
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -124,12 +131,13 @@ function TerminalView({ tab, visible, fontSize, fontFamily, projectPath }: {
 
     const term = new Terminal({
       cursorBlink: true,
-      cursorStyle: "bar",
+      cursorStyle: cursorStyle as "bar" | "block" | "underline",
       fontSize,
       fontFamily,
       theme: termTheme,
       allowTransparency: true,
       convertEol: true,
+      scrollback,
     })
     const fitAddon = new FitAddon()
     term.loadAddon(fitAddon)
@@ -138,7 +146,8 @@ function TerminalView({ tab, visible, fontSize, fontFamily, projectPath }: {
 
     const api = (window as any).electronAPI
     if (api?.ptySpawn) {
-      api.ptySpawn(tab.id, projectPath || "")
+      const { cols, rows } = fitAddon.proposeDimensions() || { cols: 80, rows: 24 }
+      api.ptySpawn(tab.id, projectPath || "", cols, rows, shell || undefined)
 
       setTerminalCommandCallback((cmd: string) => {
         if (!tab.disposed) { clearTerminalOutput(); api.ptyWrite(tab.id, cmd + "\n") }
@@ -169,20 +178,28 @@ function TerminalView({ tab, visible, fontSize, fontFamily, projectPath }: {
   }, [fontSize, fontFamily])
 
   useEffect(() => {
-    if (visible) setTimeout(() => tab.fitAddon?.fit(), 50)
+    if (visible) {
+      setTimeout(() => {
+        tab.fitAddon?.fit()
+        const dims = tab.fitAddon?.proposeDimensions()
+        if (dims && tab.term && (window as any).electronAPI) {
+          ;(window as any).electronAPI.ptyResize(tab.id, dims.cols, dims.rows)
+        }
+      }, 50)
+    }
   }, [visible])
 
   return (
-    <div ref={containerRef} className="absolute inset-0" style={{ display: visible ? "block" : "none" }} />
+    <div ref={containerRef} className="absolute inset-0 m-1" style={{ display: visible ? "block" : "none" }} />
   )
 }
 
 const termTheme = {
-  background: "#1e1e2e", foreground: "#cdd6f4", cursor: "#cdd6f4",
-  selectionBackground: "#45475a", black: "#45475a", red: "#f38ba8",
-  green: "#a6e3a1", yellow: "#f9e2af", blue: "#89b4fa",
-  magenta: "#f5c2e7", cyan: "#94e2d5", white: "#bac2de",
-  brightBlack: "#585b70", brightRed: "#f38ba8", brightGreen: "#a6e3a1",
-  brightYellow: "#f9e2af", brightBlue: "#89b4fa", brightMagenta: "#f5c2e7",
-  brightCyan: "#94e2d5", brightWhite: "#a6adc8",
+  background: "#1e1e1e", foreground: "#e2e8f0", cursor: "#3794ff",
+  selectionBackground: "#334155", black: "#1e293b", red: "#ef4444",
+  green: "#22c55e", yellow: "#eab308", blue: "#3b82f6",
+  magenta: "#a855f7", cyan: "#06b6d4", white: "#cbd5e1",
+  brightBlack: "#475569", brightRed: "#f87171", brightGreen: "#4ade80",
+  brightYellow: "#facc15", brightBlue: "#60a5fa", brightMagenta: "#c084fc",
+  brightCyan: "#22d3ee", brightWhite: "#f1f5f9",
 }

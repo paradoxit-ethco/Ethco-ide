@@ -8,18 +8,26 @@ interface SettingsState {
   fontFamily: string
   sidebarWidth: number
   terminalHeight: number
+  terminalShell: string
+  terminalScrollback: number
+  terminalCursorStyle: "bar" | "block" | "underline"
   agentPanelOpen: boolean
   agentBaseUrl: string
   agentApiKey: string
+  networkProxy: string
   setTheme: (mode: ThemeMode) => void
   setFontSize: (size: number) => void
   setTabSize: (size: number) => void
   setFontFamily: (family: string) => void
   setSidebarWidth: (w: number) => void
   setTerminalHeight: (h: number) => void
+  setTerminalShell: (shell: string) => void
+  setTerminalScrollback: (lines: number) => void
+  setTerminalCursorStyle: (style: "bar" | "block" | "underline") => void
   setAgentPanelOpen: (v: boolean) => void
   setAgentBaseUrl: (url: string) => void
   setAgentApiKey: (key: string) => void
+  setNetworkProxy: (proxy: string) => void
 }
 
 const STORAGE_KEY = "ethco-settings"
@@ -45,6 +53,9 @@ const defaults = {
   fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
   sidebarWidth: 208,
   terminalHeight: 200,
+  terminalShell: "",
+  terminalScrollback: 5000,
+  terminalCursorStyle: "bar" as const,
   agentPanelOpen: true,
   agentBaseUrl: "https://api.opencode.ai/v1",
   agentApiKey: "",
@@ -87,6 +98,18 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     saveSettings({ terminalHeight: h })
   },
 
+  setTerminalShell: (shell) => {
+    set({ terminalShell: shell })
+    saveSettings({ terminalShell: shell })
+  },
+  setTerminalScrollback: (lines) => {
+    set({ terminalScrollback: lines })
+    saveSettings({ terminalScrollback: lines })
+  },
+  setTerminalCursorStyle: (style) => {
+    set({ terminalCursorStyle: style })
+    saveSettings({ terminalCursorStyle: style })
+  },
   setAgentPanelOpen: (v) => {
     set({ agentPanelOpen: v })
     saveSettings({ agentPanelOpen: v })

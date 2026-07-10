@@ -9,3 +9,5 @@ Thumbs.db
 *.log
 src-tauri/target/
 antigravity_prompts/
+/target
+pty-sidecar

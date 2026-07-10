@@ -29,11 +29,8 @@ export function Panel({ projectPath }: PanelProps) {
 
     function onMove(e: MouseEvent) {
       // Calculate height based on cursor position - panel bottom is fixed, top moves
-      const panelEl = containerRef.current
-      if (!panelEl) return
-      const rect = panelEl.getBoundingClientRect()
-      // As cursor moves up from panel top, height increases
-      const newH = rect.bottom - e.clientY
+      // As cursor moves up (smaller clientY), height increases
+      const newH = startH + (startY - e.clientY)
       setHeight(Math.max(60, Math.min(800, newH)))
     }
 
@@ -46,9 +43,11 @@ export function Panel({ projectPath }: PanelProps) {
     document.addEventListener("mouseup", onUp)
   }, [height, setHeight])
 
+
+
   if (!visible) {
     return (
-      <div className="bg-[#181825] border-t border-[#313244] shrink-0 text-[11px] select-none">
+      <div className="bg-[var(--surface-alt)] border-t border-[var(--border)] shrink-0 text-[11px] select-none">
         <div className="flex items-center px-3 h-[25px]">
           {TABS.map((tab) => (
             <button
@@ -69,7 +68,7 @@ export function Panel({ projectPath }: PanelProps) {
   return (
     <div
       ref={containerRef}
-      className="bg-[#181825] border-t border-[#313244] flex flex-col shrink-0 relative"
+      className="bg-[var(--surface-alt)] border-t border-[var(--border)] flex flex-col shrink-0 relative"
       style={{ height }}
     >
       {/* Resize handle at TOP of panel (between editor and panel) */}
@@ -79,7 +78,7 @@ export function Panel({ projectPath }: PanelProps) {
       />
 
       {/* Panel tab bar */}
-      <div className="flex items-center px-2 border-b border-[#313244] min-h-0 shrink-0 pl-4">
+      <div className="flex items-center px-2 border-b border-[var(--border)] min-h-0 shrink-0 pl-4">
         <div className="flex items-center">
           {TABS.map((tab) => (
             <button

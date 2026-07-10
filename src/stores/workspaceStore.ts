@@ -16,6 +16,7 @@ interface WorkspaceState {
   loadWorkspace: () => { projectPath: string | null; openTabs: SavedTab[]; activeTab: string | null }
   clearWorkspace: () => void
   setRestored: (v: boolean) => void
+  setProjectPath: (path: string | null) => void
 }
 
 const WORKSPACE_KEY = "ethco-workspace"

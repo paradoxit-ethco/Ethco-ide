@@ -14,6 +14,7 @@ export function SearchPanel({ rootPath }: SearchPanelProps) {
   const [replacing, setReplacing] = useState(false)
   const [replaceText, setReplaceText] = useState("")
   const openFile = useEditorStore((s) => s.openFile)
+  const setCursorLine = useEditorStore((s) => s.setCursorLine)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const doSearch = useCallback(async (q: string) => {
@@ -40,7 +41,10 @@ export function SearchPanel({ rootPath }: SearchPanelProps) {
     try {
       const fs = getFS()
       const content = await fs.readFile(r.path)
-      openFile(r.path, content, line ? line - 1 : 0)
+      openFile(r.path, content)
+      if (line) {
+        setTimeout(() => setCursorLine(line), 100)
+      }
     } catch { /* ignore */ }
   }
 

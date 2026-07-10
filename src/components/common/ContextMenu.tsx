@@ -48,7 +48,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >
-      {items.map((item, i) => {
+      {(items ?? []).map((item, i) => {
         if (item.type === "separator") {
           return <div key={i} className="h-px bg-[var(--border)] my-1 mx-2" />
         }
