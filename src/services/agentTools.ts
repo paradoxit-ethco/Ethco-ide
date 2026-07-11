@@ -250,11 +250,20 @@ async function readFileTool(filePath: string, root: string): Promise<string> {
   return content
 }
 
+function syncEditorTab(fullPath: string, newContent: string) {
+  const store = useEditorStore.getState()
+  if (store.tabs.some((t) => t.path === fullPath)) {
+    store.updateContent(fullPath, newContent)
+    store.markClean(fullPath)
+  }
+}
+
 async function writeFileTool(filePath: string, content: string, root: string): Promise<string> {
   const fs = getFS()
   const full = resolvePath(filePath, root)
   await fs.writeFile(full, content)
   useExplorerStore.getState().triggerRefresh()
+  syncEditorTab(full, content)
   return `File written: ${full} (${content.length} bytes)`
 }
 
@@ -269,6 +278,7 @@ async function editFileTool(filePath: string, oldStr: string, newStr: string, ro
   const updated = content.replace(oldStr, newStr)
   await fs.writeFile(full, updated)
   useExplorerStore.getState().triggerRefresh()
+  syncEditorTab(full, updated)
   return `File edited: ${full} (${updated.length} bytes, ${content.length - updated.length} bytes delta)`
 }
 
