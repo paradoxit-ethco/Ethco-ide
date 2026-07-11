@@ -3,9 +3,11 @@ import type { Message } from "../../stores/agentStore"
 
 interface MessageListProps {
   messages: Message[]
+  onDeleteMessage: (id: string) => void
+  onRevertMessage: (id: string) => void
 }
 
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({ messages, onDeleteMessage, onRevertMessage }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -31,16 +33,38 @@ export function MessageList({ messages }: MessageListProps) {
       {messages.map((msg) => (
         <div
           key={msg.id}
-          className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+          className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} group relative`}
         >
           <div
-            className={`max-w-[90%] rounded-lg px-3.5 py-2.5 text-[12px] leading-relaxed shadow-sm ${
+            className={`max-w-[90%] rounded-lg px-3.5 py-2.5 text-[12px] leading-relaxed shadow-sm relative ${
               msg.role === "user"
                 ? "bg-accent/15 text-[var(--text)] border border-accent/20"
                 : "bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text)]"
             }`}
           >
-            <div className="flex items-center justify-between text-[10px] text-text-dim mb-2 select-none">
+            {/* Quick Actions Action bar */}
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-[var(--surface-alt)] border border-[var(--border)] rounded shadow-md px-1 py-0.5 z-20">
+              <button
+                onClick={() => onRevertMessage(msg.id)}
+                className="p-1 rounded text-text-muted hover:text-accent hover:bg-white/10 transition-colors"
+                title="Rollback/revert conversation to prefix up to here"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                </svg>
+              </button>
+              <button
+                onClick={() => onDeleteMessage(msg.id)}
+                className="p-1 rounded text-text-muted hover:text-red-400 hover:bg-white/10 transition-colors"
+                title="Delete this message bubble"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between text-[10px] text-text-dim mb-2 select-none pr-10">
               <span className="font-semibold tracking-wider font-mono">
                 {msg.role === "user" ? "YOU" : "ETHCO AGENT"}
               </span>
@@ -69,7 +93,6 @@ function MarkdownContent({ content }: { content: string }) {
     <div className="space-y-3 break-words">
       {parts.map((part, index) => {
         if (part.startsWith("```")) {
-          // Extract info
           const lines = part.split("\n")
           const firstLine = lines[0].replace("```", "").trim()
           const language = firstLine || "text"
@@ -95,7 +118,6 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
 
   return (
     <div className="my-2 border border-[var(--border)] rounded overflow-hidden shadow-md bg-[#131313] font-mono">
-      {/* Code header bar */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-[#181818] border-b border-[var(--border)] text-[10px] text-text-muted select-none">
         <span className="uppercase tracking-wider font-semibold text-accent-light">{language}</span>
         <button
@@ -115,7 +137,6 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
           )}
         </button>
       </div>
-      {/* Code body block */}
       <pre className="p-3 overflow-x-auto text-[11px] leading-[15px] select-text scrollbar-thin max-h-[350px]">
         <code>{code}</code>
       </pre>
@@ -124,7 +145,6 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
 }
 
 function FormattedText({ text }: { text: string }) {
-  // Process block lines (headers, list items, blank spaces)
   const lines = text.split("\n")
 
   return (
@@ -136,7 +156,6 @@ function FormattedText({ text }: { text: string }) {
           return <div key={idx} className="h-1.5" />
         }
 
-        // Header styles
         if (trimmed.startsWith("### ")) {
           return <h3 key={idx} className="text-xs font-bold text-[var(--text)] mt-3 mb-1 flex items-center gap-1.5"><span className="w-1 h-3 bg-accent rounded-full inline-block"></span>{line.substring(4)}</h3>
         }
@@ -147,7 +166,6 @@ function FormattedText({ text }: { text: string }) {
           return <h1 key={idx} className="text-sm font-bold text-[var(--accent-light)] mt-4 mb-2">{line.substring(2)}</h1>
         }
 
-        // Bullet lists
         if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
           return (
             <div key={idx} className="flex items-start gap-1.5 ml-2.5 my-1 leading-relaxed">
@@ -159,7 +177,6 @@ function FormattedText({ text }: { text: string }) {
           )
         }
 
-        // Standard line
         return (
           <p key={idx} className="leading-relaxed">
             <InlineFormatter text={line} />
@@ -171,8 +188,6 @@ function FormattedText({ text }: { text: string }) {
 }
 
 function InlineFormatter({ text }: { text: string }) {
-  // Parse bold and inline code elements
-  // Note: we target single and double backticks for inline code, and "**" or "__" for bold text
   const parts = text.split(/(`[^`]+`|\?\?[^\?]+\?\?|\*\*[^*]+\*\*)/g)
 
   return (

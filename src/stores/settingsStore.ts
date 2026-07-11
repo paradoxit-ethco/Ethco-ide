@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { type ThemeMode, getTheme, setTheme as applyTheme } from "../services/theme"
+import { useConnectionStore } from "./connectionStore"
 
 interface SettingsState {
   theme: ThemeMode
@@ -14,6 +15,7 @@ interface SettingsState {
   agentPanelOpen: boolean
   agentBaseUrl: string
   agentApiKey: string
+  agentModel: string
   networkProxy: string
   setTheme: (mode: ThemeMode) => void
   setFontSize: (size: number) => void
@@ -27,6 +29,7 @@ interface SettingsState {
   setAgentPanelOpen: (v: boolean) => void
   setAgentBaseUrl: (url: string) => void
   setAgentApiKey: (key: string) => void
+  setAgentModel: (model: string) => void
   setNetworkProxy: (proxy: string) => void
 }
 
@@ -57,8 +60,9 @@ const defaults = {
   terminalScrollback: 5000,
   terminalCursorStyle: "bar" as const,
   agentPanelOpen: true,
-  agentBaseUrl: "https://api.opencode.ai/v1",
+  agentBaseUrl: "",
   agentApiKey: "",
+  agentModel: "",
   networkProxy: "",
 }
 
@@ -119,11 +123,19 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setAgentBaseUrl: (url) => {
     set({ agentBaseUrl: url })
     saveSettings({ agentBaseUrl: url })
+    useConnectionStore.getState().setConfig({ baseUrl: url })
   },
 
   setAgentApiKey: (key) => {
     set({ agentApiKey: key })
     saveSettings({ agentApiKey: key })
+    useConnectionStore.getState().setConfig({ apiKey: key })
+  },
+
+  setAgentModel: (model) => {
+    set({ agentModel: model })
+    saveSettings({ agentModel: model })
+    useConnectionStore.getState().setConfig({ model: model })
   },
 
   setNetworkProxy: (proxy) => {

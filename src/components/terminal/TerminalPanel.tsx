@@ -31,19 +31,24 @@ export function TerminalPanel({ projectPath }: { projectPath?: string }) {
   const terminalScrollback = useSettingsStore((s) => s.terminalScrollback)
   const terminalCursorStyle = useSettingsStore((s) => s.terminalCursorStyle)
 
-  const createTab = useCallback(() => {
-    const id = `term-${++tabCounter}`
-    const shellLabel = terminalShell ? terminalShell.split(/[\\/]/).pop()! : detectShell()
+  const createTab = useCallback((customId?: string, label?: string) => {
+    const id = customId || `term-${++tabCounter}`
+    const shellLabel = label || (terminalShell ? terminalShell.split(/[\\/]/).pop()! : detectShell())
     const tab: PtyTab = {
       id, label: shellLabel, term: null, fitAddon: null, disposed: false, cleanup: () => {},
     }
     setTabs((prev) => [...prev, tab])
-    setActiveId(id)
+    if (!customId) {
+      setActiveId(id)
+    }
     return id
   }, [terminalShell])
 
   useEffect(() => {
-    if (tabs.length === 0) createTab()
+    if (tabs.length === 0) {
+      createTab("agent-shell", "Agent Terminal")
+      createTab()
+    }
   }, [tabs.length, createTab])
 
   function removeTab(id: string) {
@@ -86,12 +91,14 @@ export function TerminalPanel({ projectPath }: { projectPath?: string }) {
                 <line x1="12" y1="19" x2="20" y2="19" />
               </svg>
               <span className="truncate max-w-[120px]">{tab.label}</span>
-              <button
-                onClick={(e) => { e.stopPropagation(); removeTab(tab.id) }}
-                className="ml-1 opacity-0 group-hover:opacity-60 hover:opacity-100 hover:bg-white/10 rounded p-0.5 transition-opacity"
-              >
-                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
+              {tab.id !== "agent-shell" && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); removeTab(tab.id) }}
+                  className="ml-1 opacity-0 group-hover:opacity-60 hover:opacity-100 hover:bg-white/10 rounded p-0.5 transition-opacity"
+                >
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -149,14 +156,21 @@ function TerminalView({ tab, visible, fontSize, fontFamily, cursorStyle, scrollb
       const { cols, rows } = fitAddon.proposeDimensions() || { cols: 80, rows: 24 }
       api.ptySpawn(tab.id, projectPath || "", cols, rows, shell || undefined)
 
-      setTerminalCommandCallback((cmd: string) => {
-        if (!tab.disposed) { clearTerminalOutput(); api.ptyWrite(tab.id, cmd + "\n") }
-      })
+      if (tab.id !== "agent-shell") {
+        setTerminalCommandCallback((cmd: string) => {
+          if (!tab.disposed) { clearTerminalOutput(); api.ptyWrite(tab.id, cmd + "\n") }
+        })
+      }
 
       term.onData((data: string) => api.ptyWrite(tab.id, data))
 
       const unsubData = api.onPtyData((incomingId: string, data: string) => {
-        if (incomingId === tab.id && !tab.disposed) { term.write(data); appendTerminalOutput(data) }
+        if (incomingId === tab.id && !tab.disposed) {
+          term.write(data)
+          if (tab.id !== "agent-shell") {
+            appendTerminalOutput(data)
+          }
+        }
       })
       const unsubExit = api.onPtyExit((incomingId: string, _code: number) => {
         if (incomingId === tab.id && !tab.disposed) term.write(`\r\n\x1b[31m[process exited]\x1b[0m\r\n`)

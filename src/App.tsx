@@ -21,6 +21,7 @@ import { useToastStore } from "./stores/toastStore"
 import { useActivityStore } from "./stores/activityStore"
 import { useConnectionStore } from "./stores/connectionStore"
 import { usePanelStore } from "./stores/panelStore"
+import { useSettingsStore } from "./stores/settingsStore"
 import { getFS } from "./services/fs-provider"
 import { initTheme } from "./services/theme"
 
@@ -47,12 +48,49 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [confirmClose, setConfirmClose] = useState<{ path: string; name: string } | null>(null)
 
+  const [agentWidth, setAgentWidth] = useState(() => {
+    const saved = localStorage.getItem("ethco-agent-width")
+    return saved ? parseInt(saved, 10) : 340
+  })
+  const [isResizingAgent, setIsResizingAgent] = useState(false)
+
+  useEffect(() => {
+    if (!isResizingAgent) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const parentWidth = window.innerWidth
+      const newWidth = parentWidth - e.clientX
+      if (newWidth >= 260 && newWidth <= 750) {
+        setAgentWidth(newWidth)
+        localStorage.setItem("ethco-agent-width", String(newWidth))
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsResizingAgent(false)
+    }
+
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mouseup", handleMouseUp)
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [isResizingAgent])
+
   const initRef = useRef(false)
 
   useEffect(() => {
     if (initRef.current) return
     initRef.current = true
     initTheme()
+
+    // Initialize network proxy options in the background process
+    const proxy = useSettingsStore.getState().networkProxy
+    const api = (window as any).electronAPI
+    if (proxy && api?.setProxy) {
+      api.setProxy(proxy)
+    }
 
     const saved = loadWorkspace()
     if (saved.projectPath) {
@@ -81,7 +119,7 @@ export default function App() {
     if (ctrl && e.key === "b") { e.preventDefault(); toggleSidebar(); return }
     if (ctrl && e.shiftKey && e.key === "I") {
       e.preventDefault()
-      const model = useConnectionStore.getState().config.model || "big-pickle"
+      const model = useConnectionStore.getState().config.model || "default"
       createSession("build", model)
       return
     }
@@ -247,7 +285,17 @@ export default function App() {
 
           {/* Agent sidebar (right) */}
           {sidebarOpen && (
-            <ErrorBoundary><AgentSidebar /></ErrorBoundary>
+            <>
+              <div
+                onMouseDown={() => setIsResizingAgent(true)}
+                className={`w-1 select-none cursor-col-resize hover:bg-accent/40 transition-colors shrink-0 ${
+                  isResizingAgent ? "bg-accent/70 w-[6px]" : "bg-[var(--border)]"
+                }`}
+              />
+              <ErrorBoundary>
+                <AgentSidebar width={agentWidth} />
+              </ErrorBoundary>
+            </>
           )}
         </div>
 

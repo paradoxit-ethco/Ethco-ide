@@ -40,9 +40,9 @@ function saveConfig(config: ConnectionConfig) {
 }
 
 const defaults: ConnectionConfig = {
-  name: "opencode",
-  model: "big-pickle",
-  baseUrl: "https://opencode.ai/zen/v1",
+  name: "",
+  model: "",
+  baseUrl: "",
   apiKey: "",
 }
 

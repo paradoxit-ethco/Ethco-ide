@@ -142,6 +142,9 @@ async function createWindow() {
   }
 
   ipcMain.handle("pty:spawn", (_event, id, cwd, cols, rows, shell) => {
+    if (id === "agent-shell" && ptyProcesses.has(id)) {
+      return true
+    }
     if (ptyProcesses.has(id)) {
       ptyProcesses.get(id).kill()
       ptyProcesses.delete(id)
@@ -195,6 +198,115 @@ async function createWindow() {
       term.kill()
       ptyProcesses.delete(id)
     }
+  })
+
+  // Network proxy management inside the background process
+  ipcMain.handle("network:setProxy", async (_event, proxyRules) => {
+    try {
+      const ses = session.defaultSession
+      if (!proxyRules || proxyRules.trim() === "") {
+        await ses.setProxy({ mode: "system" })
+        console.log("[Proxy] Reset request received. Cleared proxy to system direct mode.")
+        return true
+      }
+      await ses.setProxy({
+        proxyRules: proxyRules.trim(),
+        proxyBypassRules: "localhost, 127.0.0.1"
+      })
+      console.log(`[Proxy] Active rules configured to: ${proxyRules}`)
+      return true
+    } catch (e) {
+      console.error("[Proxy] Configuration error inside main script: ", e)
+      return false
+    }
+  })
+
+  // Automatically fetch from settings and apply in background process on startup
+  mainWindow.webContents.once("did-finish-load", async () => {
+    try {
+      const stored = await mainWindow.webContents.executeJavaScript('localStorage.getItem("ethco-settings")')
+      if (stored) {
+        const settings = JSON.parse(stored)
+        if (settings.networkProxy && settings.networkProxy.trim() !== "") {
+          const rules = settings.networkProxy.trim()
+          await session.defaultSession.setProxy({
+            proxyRules: rules,
+            proxyBypassRules: "localhost, 127.0.0.1"
+          })
+          console.log(`[Auto Proxy] Background process automatically initialized: ${rules}`)
+        }
+      }
+    } catch (e) {
+      console.error("[Auto Proxy] Failure initializing background proxy configuration: ", e)
+    }
+  })
+
+  // ── Google AI Studio Key Scraper ──
+  // Uses Electron's native Chromium to open AI Studio, let user log in,
+  // then scrape API keys directly from the DOM. Zero external dependencies.
+  ipcMain.handle("google:scrapeKey", async () => {
+    return new Promise((resolve) => {
+      const scrapeWindow = new BrowserWindow({
+        width: 1000,
+        height: 720,
+        title: "Google AI Studio — Import API Key",
+        parent: mainWindow,
+        modal: false,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+        },
+      })
+
+      scrapeWindow.loadURL("https://aistudio.google.com/apikey")
+
+      let resolved = false
+
+      // Poll the DOM every 3 seconds for API key patterns
+      const poller = setInterval(async () => {
+        if (resolved || scrapeWindow.isDestroyed()) {
+          clearInterval(poller)
+          return
+        }
+        try {
+          const key = await scrapeWindow.webContents.executeJavaScript(`
+            (function() {
+              // Strategy 1: Look for key text starting with AIza (standard Gemini key format)
+              const allEls = document.querySelectorAll('span, td, div, p, input, textarea, code, pre');
+              for (const el of allEls) {
+                // Check input values
+                if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                  const val = el.value || '';
+                  if (val.startsWith('AIza') && val.length >= 35 && val.length <= 45) return val;
+                }
+                // Check text content
+                const text = el.textContent.trim();
+                if (text.startsWith('AIza') && text.length >= 35 && text.length <= 45 && !text.includes(' ')) return text;
+              }
+              // Strategy 2: Check clipboard API (if user copied)
+              return null;
+            })()
+          `)
+          if (key && !resolved) {
+            resolved = true
+            clearInterval(poller)
+            console.log("[Google Scraper] API key captured from AI Studio DOM")
+            scrapeWindow.close()
+            resolve(key)
+          }
+        } catch {
+          // Page not ready or navigating — ignore
+        }
+      }, 3000)
+
+      scrapeWindow.on("closed", () => {
+        clearInterval(poller)
+        if (!resolved) {
+          resolved = true
+          resolve(null)
+        }
+      })
+    })
   })
 
   mainWindow.on("closed", () => { mainWindow = null })

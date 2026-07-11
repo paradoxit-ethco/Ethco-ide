@@ -75,7 +75,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   type="text"
                   value={settings.agentBaseUrl}
                   onChange={(e) => settings.setAgentBaseUrl(e.target.value)}
-                  placeholder="https://api.opencode.ai/v1"
+                  placeholder="https://api.example.com/v1"
                   className="flex-1 bg-surface border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs text-[var(--text)] outline-none focus:border-accent font-mono transition-colors"
                 />
               </Row>
@@ -88,8 +88,17 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   className="flex-1 bg-surface border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs text-[var(--text)] outline-none focus:border-accent font-mono transition-colors"
                 />
               </Row>
+              <Row label="Model Name">
+                <input
+                  type="text"
+                  value={settings.agentModel}
+                  onChange={(e) => settings.setAgentModel(e.target.value)}
+                  placeholder="e.g. gpt-4o, gemini-2.0-flash"
+                  className="flex-1 bg-surface border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs text-[var(--text)] outline-none focus:border-accent font-mono transition-colors"
+                />
+              </Row>
               <p className="text-[10px] text-text-muted mt-1 leading-relaxed">
-                Configure your OpenCode cloud API endpoint and key. Changes apply on next agent session.
+                Configure your OpenAI-compatible API endpoint, key, and model. Changes synchronize instantly.
               </p>
             </div>
           </Section>
@@ -127,6 +136,23 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <option value="underline">Underline</option>
                 </select>
               </Row>
+            </div>
+          </Section>
+
+          <Section label="Network & Security">
+            <div className="space-y-2.5">
+              <Row label="Network Proxy">
+                <input
+                  type="text"
+                  value={settings.networkProxy}
+                  onChange={(e) => settings.setNetworkProxy(e.target.value)}
+                  placeholder="socks5://127.0.0.1:1080"
+                  className="flex-1 bg-surface border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs text-[var(--text)] outline-none focus:border-accent font-mono transition-colors"
+                />
+              </Row>
+              <p className="text-[10px] text-text-muted mt-1 leading-relaxed">
+                Connect the IDE to custom proxy chains, local VPNs/Tor, or security proxies (e.g. <code>socks5://127.0.0.1:1080</code> or <code>http://127.0.0.1:8080</code>). Leave blank to disable.
+              </p>
             </div>
           </Section>
 

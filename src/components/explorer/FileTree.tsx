@@ -11,7 +11,7 @@ interface FileTreeProps {
 }
 
 export function FileTree({ rootPath }: FileTreeProps) {
-  const { tree, setTree, setRoot, loading, setLoading } = useExplorerStore()
+  const { tree, setTree, setRoot, loading, setLoading, refreshCounter, triggerRefresh } = useExplorerStore()
   const { openFile } = useEditorStore()
   const sidebarWidth = useSettingsStore((s) => s.sidebarWidth)
   const setSidebarWidth = useSettingsStore((s) => s.setSidebarWidth)
@@ -51,7 +51,7 @@ export function FileTree({ rootPath }: FileTreeProps) {
 
   useEffect(() => {
     loadTree(rootPath)
-  }, [rootPath, loadTree])
+  }, [rootPath, refreshCounter, loadTree])
 
   async function handleNodeClick(node: FileNode) {
     if (!node.isDir) {
@@ -102,13 +102,13 @@ export function FileTree({ rootPath }: FileTreeProps) {
             const name = prompt("File name:")
             if (!name) return
             await getFS().createFile(`${rootPath}/${name}`)
-            loadTree(rootPath)
+            triggerRefresh()
           }},
           { label: "New Folder", action: async () => {
             const name = prompt("Folder name:")
             if (!name) return
             await getFS().createDirectory(`${rootPath}/${name}`)
-            loadTree(rootPath)
+            triggerRefresh()
           }},
         ]
       }
@@ -117,13 +117,13 @@ export function FileTree({ rootPath }: FileTreeProps) {
           const name = prompt("File name:")
           if (!name) return
           await getFS().createFile(`${getDir(node)}/${name}`)
-          loadTree(rootPath)
+          triggerRefresh()
         }},
         { label: "New Folder", action: async () => {
           const name = prompt("Folder name:")
           if (!name) return
           await getFS().createDirectory(`${getDir(node)}/${name}`)
-          loadTree(rootPath)
+          triggerRefresh()
         }},
         { type: "separator" as const },
         { label: "Rename", action: async () => {
@@ -131,12 +131,12 @@ export function FileTree({ rootPath }: FileTreeProps) {
           if (!name || name === node.name) return
           const parent = node.path.split("/").slice(0, -1).join("/")
           await getFS().rename(node.path, `${parent}/${name}`)
-          loadTree(rootPath)
+          triggerRefresh()
         }},
         { label: "Delete", action: async () => {
           if (!confirm(`Delete ${node.name}?`)) return
           await getFS().delete(node.path)
-          loadTree(rootPath)
+          triggerRefresh()
         }},
       ]
     })()

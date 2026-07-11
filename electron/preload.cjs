@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ptyResize: (id, cols, rows) => ipcRenderer.invoke("pty:resize", id, cols, rows),
   ptyKill: (id) => ipcRenderer.invoke("pty:kill", id),
   setProxy: (rules) => ipcRenderer.invoke("network:setProxy", rules),
+  scrapeGoogleKey: () => ipcRenderer.invoke("google:scrapeKey"),
   onPtyData: (callback) => {
     const handler = (_event, id, data) => callback(id, data)
     ipcRenderer.on("pty:data", handler)

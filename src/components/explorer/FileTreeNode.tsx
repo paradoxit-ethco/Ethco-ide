@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { type FileNode } from "../../stores/explorerStore"
+import { useState, useEffect } from "react"
+import { type FileNode, useExplorerStore } from "../../stores/explorerStore"
 import { getFS } from "../../services/fs-provider"
 
 interface FileTreeNodeProps {
@@ -13,6 +13,30 @@ export function FileTreeNode({ node, onSelect, onContextMenu, depth }: FileTreeN
   const [expanded, setExpanded] = useState(node.expanded)
   const [children, setChildren] = useState<FileNode[] | null>(null)
   const [loading, setLoading] = useState(false)
+  const refreshCounter = useExplorerStore((s) => s.refreshCounter)
+
+  useEffect(() => {
+    if (node.isDir && expanded) {
+      const refreshDir = async () => {
+        try {
+          const fs = getFS()
+          const entries = await fs.listDirectory(node.path)
+          setChildren(
+            entries.map((e) => ({
+              name: e.name,
+              path: e.path,
+              isDir: e.isDir,
+              size: e.size,
+              expanded: false,
+            }))
+          )
+        } catch (e) {
+          console.error(e)
+        }
+      }
+      refreshDir()
+    }
+  }, [node.path, node.isDir, expanded, refreshCounter])
 
   async function handleClick(_e: React.MouseEvent) {
     if (node.isDir) {

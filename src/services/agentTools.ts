@@ -1,5 +1,7 @@
 import { getFS } from "./fs-provider"
 import { searchInFiles, searchFiles } from "./search"
+import { useExplorerStore } from "../stores/explorerStore"
+import { useEditorStore } from "../stores/editorStore"
 
 export interface ToolDef {
   type: "function"
@@ -25,7 +27,7 @@ export type ToolResult = {
   content: string
 }
 
-let terminalCommandCallback: ((cmd: string) => void) | null = null
+export let terminalCommandCallback: ((cmd: string) => void) | null = null
 let terminalOutput: string[] = []
 
 export function setTerminalCommandCallback(fn: (cmd: string) => void) {
@@ -34,11 +36,38 @@ export function setTerminalCommandCallback(fn: (cmd: string) => void) {
 
 export function appendTerminalOutput(data: string) {
   terminalOutput.push(data)
-  if (terminalOutput.length > 100) terminalOutput.shift()
+  if (terminalOutput.length > 500) terminalOutput.shift()
 }
 
 export function clearTerminalOutput() {
   terminalOutput = []
+}
+
+let agentShellSpawned = false
+let agentTerminalOutput: string[] = []
+
+// Sync PTY data streams for the agent terminal in real-time
+if (typeof window !== "undefined") {
+  const api = (window as any).electronAPI
+  if (api?.onPtyData) {
+    api.onPtyData((id: string, data: string) => {
+      if (id === "agent-shell") {
+        agentTerminalOutput.push(data)
+        if (agentTerminalOutput.length > 800) {
+          agentTerminalOutput.shift()
+        }
+      }
+    })
+  }
+}
+
+async function ensureAgentTerminal(projectRoot: string) {
+  if (agentShellSpawned) return
+  const api = (window as any).electronAPI
+  if (api?.ptySpawn) {
+    await api.ptySpawn("agent-shell", projectRoot, 100, 24)
+    agentShellSpawned = true
+  }
 }
 
 export const IDE_TOOLS: ToolDef[] = [
@@ -46,7 +75,7 @@ export const IDE_TOOLS: ToolDef[] = [
     type: "function",
     function: {
       name: "read_file",
-      description: "Read the full contents of a file. Returns the complete file content.",
+      description: "Read the full contents of a file. Returns the complete file content as plaintext.",
       parameters: {
         type: "object",
         properties: {
@@ -60,7 +89,7 @@ export const IDE_TOOLS: ToolDef[] = [
     type: "function",
     function: {
       name: "write_file",
-      description: "Create a new file or overwrite an existing file with new content. Use for creating new files or complete rewrites. For small changes, prefer edit_file.",
+      description: "Create a new file or overwrite an existing file with new content. Use for creating new files or complete rewrites.",
       parameters: {
         type: "object",
         properties: {
@@ -91,7 +120,7 @@ export const IDE_TOOLS: ToolDef[] = [
     type: "function",
     function: {
       name: "list_files",
-      description: "List files and directories in a directory. Shows names with icons and / for directories.",
+      description: "List files and directories in a directory path.",
       parameters: {
         type: "object",
         properties: {
@@ -105,13 +134,35 @@ export const IDE_TOOLS: ToolDef[] = [
     type: "function",
     function: {
       name: "run_terminal",
-      description: "Execute a shell command in the IDE terminal. Use for running builds, tests, git commands, dev servers, etc. Maximum 10s timeout for output capture.",
+      description: "Execute a shell command in your dedicated, persistent Agent Terminal tab. You can run builds, tests, git commits, or compile code. If a command runs in the foreground or hangs (e.g. dev servers, interactive input), call interrupt_terminal or write 'ctrl+c' to send SIGINT.",
       parameters: {
         type: "object",
         properties: {
           command: { type: "string", description: "Shell command to execute" },
         },
         required: ["command"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "interrupt_terminal",
+      description: "Send an interrupt signal (Ctrl+C / SIGINT) to the Agent Terminal. Use this if a previously run command did not exit or is hanging.",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "reset_terminal",
+      description: "Option B. Force kill the active Agent Terminal and spawn a clean, responsive shell session. Use if the terminal is completely locked.",
+      parameters: {
+        type: "object",
+        properties: {},
       },
     },
   },
@@ -150,9 +201,11 @@ export async function executeToolCall(
   projectRoot: string
 ): Promise<string> {
   const { name, arguments: argsStr } = toolCall.function
-  let args: Record<string, string>
+  let args: Record<string, string> = {}
   try {
-    args = JSON.parse(argsStr)
+    if (argsStr && argsStr.trim() !== "{}") {
+      args = JSON.parse(argsStr)
+    }
   } catch {
     return `Error: Invalid JSON in tool arguments: ${argsStr}`
   }
@@ -168,7 +221,11 @@ export async function executeToolCall(
       case "list_files":
         return await listFilesTool(args.path || projectRoot)
       case "run_terminal":
-        return await runTerminalTool(args.command)
+        return await runTerminalTool(args.command, projectRoot)
+      case "interrupt_terminal":
+        return await interruptTerminalTool()
+      case "reset_terminal":
+        return await resetTerminalTool(projectRoot)
       case "search_code":
         return await searchCodeTool(args.query, projectRoot)
       case "grep_search":
@@ -197,6 +254,7 @@ async function writeFileTool(filePath: string, content: string, root: string): P
   const fs = getFS()
   const full = resolvePath(filePath, root)
   await fs.writeFile(full, content)
+  useExplorerStore.getState().triggerRefresh()
   return `File written: ${full} (${content.length} bytes)`
 }
 
@@ -210,6 +268,7 @@ async function editFileTool(filePath: string, oldStr: string, newStr: string, ro
   }
   const updated = content.replace(oldStr, newStr)
   await fs.writeFile(full, updated)
+  useExplorerStore.getState().triggerRefresh()
   return `File edited: ${full} (${updated.length} bytes, ${content.length - updated.length} bytes delta)`
 }
 
@@ -223,24 +282,68 @@ async function listFilesTool(dirPath: string): Promise<string> {
   return lines.join("\n")
 }
 
-async function runTerminalTool(command: string): Promise<string> {
-  if (!terminalCommandCallback) {
-    return "Error: Terminal is not initialized. Open the terminal panel first."
+async function runTerminalTool(command: string, projectRoot: string): Promise<string> {
+  const api = (window as any).electronAPI
+  if (!api?.ptyWrite) {
+    return "Error: Terminal is not available (running in web browser). Pls run desktop app."
   }
-  clearTerminalOutput()
-  terminalCommandCallback(command)
-  // Wait for output with polling (up to 8s)
+  await ensureAgentTerminal(projectRoot)
+
+  const cmdClean = command.trim()
+  if (cmdClean === "ctrl+c" || cmdClean === "SIGINT") {
+    return await interruptTerminalTool()
+  }
+
+  // Clear output queue
+  agentTerminalOutput = []
+
+  // Write command
+  api.ptyWrite("agent-shell", command + "\n")
+
+  // Poll for terminal output
   const start = Date.now()
-  while (Date.now() - start < 8000) {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    const out = terminalOutput.join("")
+  let previousOutputLength = 0
+  let stableCounter = 0
+
+  while (Date.now() - start < 10000) {
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    const out = agentTerminalOutput.join("")
     if (out.length > 0) {
-      // Got output - give it a bit more time to complete
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-      return terminalOutput.join("").slice(0, 10000) || out
+      if (out.length === previousOutputLength) {
+        stableCounter++
+        if (stableCounter >= 3) break // Stable output achieved
+      } else {
+        stableCounter = 0
+        previousOutputLength = out.length
+      }
     }
   }
-  return terminalOutput.join("").slice(0, 10000) || "Command executed (no output captured)"
+
+  // Strip ANSI coloration codes so the agent sees plain text outputs
+  const rawText = agentTerminalOutput.join("")
+  const cleanText = rawText.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, "")
+  useExplorerStore.getState().triggerRefresh()
+  return cleanText.slice(0, 12000) || "Command executed (no stdout captured)"
+}
+
+async function interruptTerminalTool(): Promise<string> {
+  const api = (window as any).electronAPI
+  if (api?.ptyWrite) {
+    api.ptyWrite("agent-shell", "\x03")
+    return "Sent interrupt signal (Ctrl+C) to Agent Terminal."
+  }
+  return "Error: Terminal API not available."
+}
+
+async function resetTerminalTool(projectRoot: string): Promise<string> {
+  const api = (window as any).electronAPI
+  if (api?.ptyKill && api?.ptySpawn) {
+    await api.ptyKill("agent-shell")
+    agentShellSpawned = false
+    await ensureAgentTerminal(projectRoot)
+    return "Agent Terminal was successfully reset. Spawned fresh clean shell."
+  }
+  return "Error: Terminal API not available."
 }
 
 async function grepSearchTool(pattern: string, root: string): Promise<string> {

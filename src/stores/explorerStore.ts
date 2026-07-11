@@ -13,6 +13,8 @@ interface ExplorerState {
   root: string | null
   tree: FileNode[]
   loading: boolean
+  refreshCounter: number
+  triggerRefresh: () => void
   setRoot: (path: string) => void
   setTree: (nodes: FileNode[]) => void
   toggleExpand: (path: string) => void
@@ -23,6 +25,9 @@ export const useExplorerStore = create<ExplorerState>((set) => ({
   root: null,
   tree: [],
   loading: false,
+  refreshCounter: 0,
+
+  triggerRefresh: () => set((s) => ({ refreshCounter: s.refreshCounter + 1 })),
 
   setRoot: (path: string) => set({ root: path }),
 
