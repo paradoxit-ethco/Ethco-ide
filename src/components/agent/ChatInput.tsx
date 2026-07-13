@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react"
 import { useAgentStore } from "../../stores/agentStore"
-import { sendMessage } from "../../services/chatService"
+import { sendMessage, cancelMessage } from "../../services/chatService"
 
 export function ChatInput() {
   const [input, setInput] = useState("")
@@ -30,6 +30,12 @@ export function ChatInput() {
     }
   }, [input, activeSessionId])
 
+  function handleStop() {
+    if (activeSessionId) {
+      cancelMessage(activeSessionId)
+    }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -55,12 +61,19 @@ export function ChatInput() {
           className="flex-1 bg-surface border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-[var(--text)] placeholder-text-muted resize-none outline-none focus:border-accent transition-colors disabled:opacity-50"
         />
         <button
-          onClick={handleSend}
-          disabled={!input.trim() || session?.status === "thinking"}
-          className="px-3 py-2 bg-accent text-white rounded-lg text-xs hover:bg-accent-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors self-end flex items-center gap-1"
+          onClick={session?.status === "thinking" ? handleStop : handleSend}
+          disabled={!input.trim() && session?.status !== "thinking"}
+          className={`px-3 py-2 text-white rounded-lg text-xs transition-colors self-end flex items-center gap-1 ${
+            session?.status === "thinking"
+              ? "bg-red-500/80 hover:bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+              : "bg-accent hover:bg-accent-dark disabled:opacity-40 disabled:cursor-not-allowed"
+          }`}
+          title={session?.status === "thinking" ? "Halt current task" : "Send message"}
         >
           {session?.status === "thinking" ? (
-            <div className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="6" width="12" height="12" rx="2" />
+            </svg>
           ) : (
             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           )}

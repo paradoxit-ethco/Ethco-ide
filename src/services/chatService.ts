@@ -11,7 +11,16 @@ interface ChatMessage {
   tool_call_id?: string
 }
 
-const MAX_TOOL_ROUNDS = 8 // maximum agentic loop iterations
+// Map to track active request controllers for cancellations
+const activeControllers = new Map<string, AbortController>()
+
+export function cancelMessage(sessionId: string) {
+  const ctrl = activeControllers.get(sessionId)
+  if (ctrl) {
+    ctrl.abort()
+    activeControllers.delete(sessionId)
+  }
+}
 
 export async function sendMessage(sessionId: string, text: string) {
   const { config } = useConnectionStore.getState()
@@ -23,11 +32,15 @@ export async function sendMessage(sessionId: string, text: string) {
 
   const projectRoot = (window as any).__projectRoot || "unknown"
 
+  // Setup cancellation controller
+  const controller = new AbortController()
+  activeControllers.set(sessionId, controller)
+
   // Gather open file paths for context
   const openFiles = useEditorStore.getState().tabs.map(t => t.path)
   const systemPrompt = buildAdvancedSystemPrompt(projectRoot, openFiles)
 
-  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt }]
+  let messages: ChatMessage[] = [{ role: "system", content: systemPrompt }]
 
   // Add history (last 40 messages for deeper context)
   for (const msg of session.messages.slice(-40)) {
@@ -40,6 +53,7 @@ export async function sendMessage(sessionId: string, text: string) {
 
   messages.push({ role: "user", content: text })
 
+  // Log user message
   store.addMessage(sessionId, {
     id: crypto.randomUUID(),
     role: "user",
@@ -53,13 +67,19 @@ export async function sendMessage(sessionId: string, text: string) {
   if (config.apiKey) headers["Authorization"] = `Bearer ${config.apiKey}`
 
   try {
-    // === Agentic Loop ===
-    // The agent can call tools, get results, and continue reasoning
-    // for up to MAX_TOOL_ROUNDS iterations before requiring user input.
-    let round = 0
+    // === Unbounded Agentic Loop ===
+    // The agent runs autonomously and executes perfectly until completion or manual cancel.
+    let isFinished = false
 
-    while (round < MAX_TOOL_ROUNDS) {
-      round++
+    while (!isFinished && !controller.signal.aborted) {
+
+      // --- Elite Context Auto-Compression ---
+      // Estimate token boundary (approx 125,000 threshold mapping to ~450,000 chars)
+      const currentPayloadCharLen = messages.reduce((acc, m) => acc + (m.content?.length || 0), 0)
+      
+      if (currentPayloadCharLen > 400_000) {
+        messages = await performAutoCompression(messages, config, sessionId, store, controller.signal)
+      }
 
       const body: Record<string, unknown> = {
         model: config.model,
@@ -72,7 +92,7 @@ export async function sendMessage(sessionId: string, text: string) {
         method: "POST",
         headers,
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(120000),
+        signal: controller.signal,
       })
 
       if (!res.ok) {
@@ -96,7 +116,7 @@ export async function sendMessage(sessionId: string, text: string) {
 
       // --- Tool call handling ---
       if (responseMsg.tool_calls && responseMsg.tool_calls.length > 0) {
-        // Show assistant's reasoning if any
+        // Show assistant's reasoning if any exists
         if (responseMsg.content) {
           store.addMessage(sessionId, {
             id: crypto.randomUUID(),
@@ -106,12 +126,14 @@ export async function sendMessage(sessionId: string, text: string) {
           })
         }
 
-        // Add assistant message with tool calls to conversation
+        // Add assistant message with tool definitions into exact message array structure
         messages.push(responseMsg)
 
         // Execute each tool call
         const toolResults: ChatMessage[] = []
         for (const tc of responseMsg.tool_calls) {
+          if (controller.signal.aborted) break
+
           const toolName = tc.function.name
           const toolArgs = safeParseArgs(tc.function.arguments)
 
@@ -123,13 +145,14 @@ export async function sendMessage(sessionId: string, text: string) {
             timestamp: Date.now(),
           })
 
-          // Execute the tool
+          // Execute the tool locally
           const result = await executeToolCall(tc, projectRoot)
 
-          // Show truncated result
+          // Show truncated result purely in UI (protect scroll performance)
           const truncated = result.length > 1200
             ? result.slice(0, 1200) + `\n... (${result.length - 1200} chars truncated)`
             : result
+            
           store.addMessage(sessionId, {
             id: crypto.randomUUID(),
             role: "assistant",
@@ -137,22 +160,19 @@ export async function sendMessage(sessionId: string, text: string) {
             timestamp: Date.now(),
           })
 
-          // Add tool result to messages for next round
+          // Feed full execution output back into pure LLM payload
           toolResults.push({
             role: "tool",
             tool_call_id: tc.id,
-            content: result.slice(0, 15000), // limit context size
+            content: result.slice(0, 30_000), // High capacity internal bounds
           })
         }
 
-        // Add all tool results to the conversation
         messages.push(...toolResults)
-
-        // Continue the loop — the model will see tool results and decide next action
-        continue
+        continue // keep looping if we processed tools!
       }
 
-      // --- No tool calls: final text response ---
+      // --- No tool calls generated => Agent is finished responding ---
       if (responseMsg.content) {
         store.addMessage(sessionId, {
           id: crypto.randomUUID(),
@@ -161,29 +181,88 @@ export async function sendMessage(sessionId: string, text: string) {
           timestamp: Date.now(),
         })
       }
-
-      // Break the loop — no more tool calls needed
-      break
+      isFinished = true
     }
-
-    if (round >= MAX_TOOL_ROUNDS) {
+  } catch (e: any) {
+    if (e.name === "AbortError" || e.message.includes("abort")) {
       store.addMessage(sessionId, {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `⚠️ Reached maximum tool execution rounds (${MAX_TOOL_ROUNDS}). Pausing for your input.`,
+        content: `⛔ **Agent Disconnected:** Live execution sequence aborted manually by user.`,
+        timestamp: Date.now(),
+      })
+    } else {
+      store.addMessage(sessionId, {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `**Error**: ${e.message || "Request failed"}\n\nCheck your connection settings.`,
         timestamp: Date.now(),
       })
     }
-  } catch (e: any) {
-    store.addMessage(sessionId, {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: `**Error**: ${e.message || "Request failed"}\n\nCheck your connection settings and ensure the API endpoint is correct.`,
-      timestamp: Date.now(),
-    })
   } finally {
+    activeControllers.delete(sessionId)
     store.setStatus(sessionId, "idle")
   }
+}
+
+/** 
+ * Automatically compresses memory blocks if token payload grows exceedingly large. 
+ * Allows 125,000+ context stability.
+ */
+async function performAutoCompression(
+  messages: ChatMessage[],
+  config: any,
+  sessionId: string,
+  store: any,
+  signal: AbortSignal
+): Promise<ChatMessage[]> {
+  // Post elite update payload
+  store.addMessage(sessionId, {
+     id: crypto.randomUUID(),
+     role: "assistant",
+     content: "🧠 **[Elite Core]: Deep memory compaction initiated...** *(Analyzing backlog to preserve chronological accuracy over 125,000 context limits)*",
+     timestamp: Date.now()
+  })
+
+  try {
+    const sysBlock = messages[0]
+    const recentConvo = messages.slice(-5)
+    const midString = messages.slice(1, -5).map(m => `[${m.role.toUpperCase()}]: ${m.content}`).join("\n")
+
+    if (midString.length < 500) return messages
+
+    const compressionRequest = {
+      model: config.model,
+      messages: [
+        { 
+          role: "system", 
+          content: "You are an elite autonomous agent's memory compressor subsystem. Distill the following raw log into a purely factual, robust, heavy chronological summary. Highlight critical path variables, files modified, error outcomes, and user intentions. Delete all hallucination or fluff." 
+        },
+        { role: "user", content: midString }
+      ]
+    }
+    
+    const headers: Record<string, string> = { "Content-Type": "application/json" }
+    if (config.apiKey) headers["Authorization"] = `Bearer ${config.apiKey}`
+
+    const res = await fetch(`${config.baseUrl}/chat/completions`, {
+       method: "POST", headers, body: JSON.stringify(compressionRequest), signal
+    })
+
+    if (res.ok) {
+       const wrapper = await res.json()
+       const compressed = wrapper.choices?.[0]?.message?.content || "Memories compressed."
+       return [
+         sysBlock,
+         { role: "system", content: `<deep_archive_memory>\n${compressed}\n</deep_archive_memory>` },
+         ...recentConvo
+       ]
+    }
+  } catch (err: any) {
+    if (err.name === "AbortError") throw err
+    // Continue raw if decompression fails
+  }
+  return messages 
 }
 
 /** Format a tool call for display in chat */
