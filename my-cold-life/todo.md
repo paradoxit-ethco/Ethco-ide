@@ -15,4 +15,6 @@
 - [x] Add or update Vitest coverage for new backend procedures and shared behavior
 - [x] Run typecheck, tests, and visual verification at desktop and mobile breakpoints
 - [x] Save final checkpoint and prepare GitHub repository push instructions
-- [ ] Push the completed My Cold Life project into the `paradoxit-ethco/Ethco-ide` repository and verify the target branch and commit
+- [x] Push the completed My Cold Life project into the `paradoxit-ethco/Ethco-ide` repository and verify the target branch and commit
+- [ ] Add bilingual Earth page explaining Solar System versus Earth with an Earth image and visual comparison
+- [ ] Push the Earth feature update into the selected website repository

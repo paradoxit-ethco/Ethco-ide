@@ -8,6 +8,7 @@ import Home from "./pages/Home";
 import About from "./pages/About";
 import Inventory from "./pages/Inventory";
 import Gallery from "./pages/Gallery";
+import Earth from "./pages/Earth";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useState } from "react";
 import { Globe2, Leaf, LogIn, LogOut, Menu, Moon, Sun, X } from "lucide-react";
@@ -25,6 +26,7 @@ export function SiteHeader({ language, setLanguage }: { language: Language; setL
     { href: "/about", label: t.nav.about },
     { href: "/inventory", label: t.nav.inventory },
     { href: "/gallery", label: t.nav.gallery },
+    { href: "/earth", label: language === "en" ? "Earth" : "መሬት" },
   ];
 
   return (
@@ -57,7 +59,7 @@ function Footer({ language }: { language: Language }) {
 function Router() {
   const [language, setLanguage] = useState<Language>(() => (localStorage.getItem("mcl-language") as Language) || "en");
   const updateLanguage = (next: Language) => { setLanguage(next); localStorage.setItem("mcl-language", next); };
-  return <div className="app-frame"><SiteHeader language={language} setLanguage={updateLanguage} /><main><Switch><Route path="/" component={() => <Home language={language} />} /><Route path="/about" component={() => <About language={language} />} /><Route path="/inventory" component={() => <Inventory language={language} />} /><Route path="/gallery" component={() => <Gallery language={language} />} /><Route path="/404" component={NotFound} /><Route component={NotFound} /></Switch></main><Footer language={language} /></div>;
+  return <div className="app-frame"><SiteHeader language={language} setLanguage={updateLanguage} /><main><Switch><Route path="/" component={() => <Home language={language} />} /><Route path="/about" component={() => <About language={language} />} /><Route path="/inventory" component={() => <Inventory language={language} />} /><Route path="/gallery" component={() => <Gallery language={language} />} /><Route path="/earth" component={() => <Earth language={language} />} /><Route path="/404" component={NotFound} /><Route component={NotFound} /></Switch></main><Footer language={language} /></div>;
 }
 
 function App() { return <ErrorBoundary><ThemeProvider defaultTheme="dark" switchable><TooltipProvider><Toaster /><Router /></TooltipProvider></ThemeProvider></ErrorBoundary>; }

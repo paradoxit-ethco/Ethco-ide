@@ -110,3 +110,34 @@ export const plantSeeds = [
 ] as const;
 
 export type SiteContent = (typeof siteContent)[Language];
+
+export const earthContent = {
+  en: {
+    nav: "Earth",
+    eyebrow: "A place within the whole",
+    title: "Earth is one world inside a larger system.",
+    intro: "The Solar System is the complete family of objects orbiting the Sun. Earth is one of its eight planets — the living world we call home.",
+    solarTitle: "Solar System",
+    solarBody: "The Sun, eight planets, moons, asteroids, comets, and other celestial bodies together form one vast system.",
+    earthTitle: "Earth",
+    earthBody: "Earth is one planet in that system. It travels around the Sun and is the only world currently known to support human life.",
+    solarFacts: ["1 star: the Sun", "8 planets", "Moons, asteroids, and comets", "A vast gravitational system"],
+    earthFacts: ["3rd planet from the Sun", "One natural Moon", "Liquid water on the surface", "Home to people and diverse life"],
+    summary: "In short: Earth is a part of the Solar System; the Solar System includes Earth and many other celestial bodies.",
+    caption: "Earth / the living planet",
+  },
+  am: {
+    nav: "መሬት",
+    eyebrow: "በትልቁ ስርዓት ውስጥ ያለ ዓለም",
+    title: "መሬት በትልቅ ስርዓት ውስጥ ያለች አንድ ዓለም ናት።",
+    intro: "ስርዓተ ፀሐይ በፀሐይ ዙሪያ የሚዞሩ የሰማይ አካላት ሙሉ ቤተሰብ ነው። መሬት ከስምንቱ ፕላኔቶች አንዷ ናት።",
+    solarTitle: "ስርዓተ ፀሐይ",
+    solarBody: "ፀሐይ፣ ስምንቱ ፕላኔቶች፣ ጨረቃዎች፣ አስትሮይዶች፣ ኮሜቶች እና ሌሎች የሰማይ አካላት በአንድነት ትልቅ ስርዓት ይፈጥራሉ።",
+    earthTitle: "መሬት",
+    earthBody: "መሬት በዚህ ስርዓት ውስጥ ያለች አንድ ፕላኔት ናት። በፀሐይ ዙሪያ ትዞራለች፣ ሰዎችና ብዙ ሕይወታትም በእሷ ላይ ይኖራሉ።",
+    solarFacts: ["1 ኮከብ፦ ፀሐይ", "8 ፕላኔቶች", "ጨረቃዎች፣ አስትሮይዶች እና ኮሜቶች", "ትልቅ የስበት ስርዓት"],
+    earthFacts: ["ከፀሐይ ሦስተኛ ፕላኔት", "አንድ የተፈጥሮ ጨረቃ", "በላዩ ላይ ፈሳሽ ውሃ", "የሰዎችና የብዙ ሕይወታት መኖሪያ"],
+    summary: "በአጭሩ፦ መሬት የስርዓተ ፀሐይ አንድ ክፍል ናት፤ ስርዓተ ፀሐይ ግን መሬትን ጨምሮ ብዙ የሰማይ አካላትን ያካትታል።",
+    caption: "መሬት / ሕያዋን ፕላኔት",
+  },
+} as const;
