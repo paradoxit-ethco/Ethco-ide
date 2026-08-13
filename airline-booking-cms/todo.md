@@ -1,6 +1,6 @@
-# Mila Button Redirect Fix
+# Mila Auth Trigger Fix
 
-- [x] Make landing CTA buttons open the correct authentication mode reliably.
-- [x] Make role-access cards open sign-in with the selected role.
-- [x] Verify the modal opens from every landing CTA and the demo sign-in flow completes.
-- [ ] Push the navigation fix into Ethco-ide.
+- [ ] Remove reliance on hash navigation for opening the auth modal.
+- [ ] Use explicit React state callbacks for Sign in and Create demo account.
+- [ ] Verify both landing buttons open the correct auth mode and demo login completes.
+- [ ] Push the fix into Ethco-ide.
