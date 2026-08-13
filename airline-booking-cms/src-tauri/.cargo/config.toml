@@ -1,0 +1,9 @@
+# On Windows, use MSVC target. If you don't have Visual Studio Build Tools,
+# WSL is recommended for building the Rust backend.
+#
+# Build in WSL:
+#   cd /path/to/ethco-ide/src-tauri
+#   cargo build
+#
+# On Windows with MSVC:
+#   cargo build --target x86_64-pc-windows-msvc

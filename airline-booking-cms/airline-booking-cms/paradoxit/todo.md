@@ -1,0 +1,28 @@
+# Project TODO
+
+- [x] Establish Paradoxit luxury Earth-and-Sun visual system with deep space, gold, amber, and textured surfaces
+- [x] Add opulent serif plus modern sans-serif typography and responsive layout foundations
+- [x] Implement persistent dark/light mode with smooth transitions
+- [x] Implement bilingual English and Amharic content model and navigation language switcher
+- [x] Build top navigation with Home, About, Inventory/Invent, and Gallery/Images routes
+- [x] Build bilingual home hero with exact Paradoxit brand name, dual-language tagline, and primary CTA
+- [x] Build bilingual About page with brand story and mission
+- [x] Build luxury Inventory/Invent grid page
+- [x] Build masonry/grid Gallery/Images page
+- [x] Implement OAuth login, authenticated full-name display, and sign-out flow
+- [x] Add footer with exactly Instagram, Telegram, Facebook, WhatsApp, and GitHub links plus physical address
+- [x] Use the built-in OAuth user profile and users.name field for authenticated full-name display; no additional schema migration required
+- [x] Run TypeScript typecheck and the existing Vitest suite; OAuth logout test passes
+- [x] Verify desktop and mobile rendering plus navigation/auth control labels
+- [x] Commit and push the completed project to paradoxit-ethco/woreda4girls-hair
+- [x] Localize all remaining user-facing inventory and gallery labels into English and Amharic through the shared content model
+- [x] Update the hero to show the exact Paradoxit brand name and both-language tagline together
+- [ ] Synchronize the completed Paradoxit project into paradoxit-ethco/Ethco-ide, creating a clearly named folder if needed
+- [ ] Commit and push the synchronized Paradoxit folder to Ethco-ide
+- [x] Reorder the website into a more formal, clearly structured presentation hierarchy
+- [x] Add one dedicated image card for the Sun, Moon, and each planet in ordered solar-system sequence
+- [x] Replace abstract placeholder gallery panels with real celestial image assets and formal captions
+- [x] Verify the refreshed website before synchronizing the updated Paradoxit folder into Ethco-ide
+- [x] Strengthen the formal page hierarchy with clearer section sequencing and page-specific editorial layouts
+- [x] Add explicit numbered editorial sections to the Home page
+- [x] Expand the About page into distinct origin and philosophy sections
