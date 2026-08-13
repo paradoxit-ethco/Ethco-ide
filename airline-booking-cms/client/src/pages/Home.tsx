@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Activity, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check, ChevronDown, CircleHelp,
@@ -67,18 +67,35 @@ export default function Home() {
   const t = text[language];
   const role = session?.role ?? "client";
 
+  useEffect(() => {
+    const syncAuthRoute = () => {
+      const hash = window.location.hash;
+      if (!session && (hash === "#register" || hash === "#signin")) {
+        setAuthMode(hash === "#register" ? "register" : "signin");
+        setAuthOpen(true);
+      }
+    };
+    syncAuthRoute();
+    window.addEventListener("popstate", syncAuthRoute);
+    window.addEventListener("hashchange", syncAuthRoute);
+    return () => {
+      window.removeEventListener("popstate", syncAuthRoute);
+      window.removeEventListener("hashchange", syncAuthRoute);
+    };
+  }, [session]);
+
   const filteredBookings = useMemo(() => bookings.filter((b) => `${b.id} ${b.passenger} ${b.route}`.toLowerCase().includes(search.toLowerCase())), [bookings, search]);
   const notify = (message: string) => toast(message);
   const toggleTheme = () => setDark((current) => { const next = !current; document.documentElement.classList.toggle("dark", next); return next; });
 
-  const openAuth = (mode: AuthMode, selectedRole: Role = "client") => { setAuthMode(mode); setAuthRole(selectedRole); setAuthOpen(true); };
+  const openAuth = (mode: AuthMode, selectedRole: Role = "client") => { window.history.pushState({ mila: mode }, "", mode === "register" ? "#register" : "#signin"); setAuthMode(mode); setAuthRole(selectedRole); setAuthOpen(true); };
   const signInDemo = (selectedRole: Role) => { const credential = demoCredentials.find((item) => item.role === selectedRole)!; setAuthEmail(credential.email); setAuthPassword(credential.password); setAuthRole(selectedRole); setAuthMode("signin"); };
   const submitAuth = () => {
     if (!authEmail || !authPassword || (authMode === "register" && !authName)) { notify(language === "en" ? "Complete the required fields first" : "እባክዎ አስፈላጊ መስኮችን ይሙሉ"); return; }
     const matching = demoCredentials.find((item) => item.email === authEmail && item.password === authPassword);
     const chosenRole = matching?.role ?? authRole;
     setSession({ name: authName || (chosenRole === "super" ? "Mila Admin" : chosenRole === "technical" ? "Mila Technical" : "Mila Client"), email: authEmail, role: chosenRole });
-    setAuthOpen(false); notify(language === "en" ? `Signed in as ${roleLabels[chosenRole].en}` : `እንደ ${roleLabels[chosenRole].am} ገብተዋል`);
+    window.history.pushState({ mila: "dashboard" }, "", "#dashboard"); setAuthOpen(false); notify(language === "en" ? `Signed in as ${roleLabels[chosenRole].en}` : `እንደ ${roleLabels[chosenRole].am} ገብተዋል`);
   };
   const switchRole = (nextRole: Role) => { if (!session) return; setSession({ ...session, role: nextRole }); notify(`${roleLabels[nextRole][language]} workspace selected`); };
   const submitBooking = () => { if (!formPassenger) { notify("Add a passenger name first"); return; } const next: DemoBooking = { id: `ML-${20850 + bookings.length}`, passenger: formPassenger, route: formRoute, departure: "Aug 18 · 08:30", status: "Pending", total: "$420.00" }; setBookings([next, ...bookings]); setFormPassenger(""); setModal(null); notify("Booking created in the demo ledger"); };
@@ -113,7 +130,7 @@ export default function Home() {
     {modal === "user" && <Dialog title={t.addUser} onClose={() => setModal(null)}><div className="space-y-4"><Field label={t.firstName} value={formName} onChange={setFormName} placeholder="e.g. Hana Alemu" /><Field label={t.email} value={formEmail} onChange={setFormEmail} placeholder="hana@example.com" /><label className="block text-xs font-bold">{t.chooseRole}<select value={authRole} onChange={(e) => setAuthRole(e.target.value as Role)} className="mt-2 h-10 w-full rounded-xl border border-border bg-background px-3 text-sm">{(Object.keys(roleLabels) as Role[]).map((item) => <option key={item} value={item}>{roleLabels[item][language]}</option>)}</select></label><Button className="h-11 w-full rounded-xl bg-[#F26A3D] text-white" onClick={submitUser}>Add user <Plus size={16} className="ml-2" /></Button><div className="max-h-48 space-y-2 overflow-y-auto border-t border-dashed border-border pt-4">{users.map((user) => <div key={user.id} className="flex items-center justify-between rounded-xl bg-muted/40 p-3"><div><div className="text-xs font-bold">{user.name}</div><div className="text-[11px] text-muted-foreground">{user.email}</div></div><Badge variant="outline" className="rounded-full border-0 bg-background text-[10px]">{roleLabels[user.role][language]}</Badge></div>)}</div></div></Dialog>}
     {modal === "route" && <Dialog title={t.addRoute} onClose={() => setModal(null)}><div className="space-y-3"><p className="text-sm text-muted-foreground">Create a route template for the demo schedule.</p><Field label="Route code" value="ML 220" onChange={() => undefined} placeholder="ML 220" /><Button className="h-11 w-full rounded-xl bg-[#F26A3D] text-white" onClick={() => { setModal(null); notify("Route added to demo schedule"); }}>Save route</Button></div></Dialog>}
     {modal === "profile" && <Dialog title="Demo profile" onClose={() => setModal(null)}><div className="space-y-4"><div className="rounded-2xl bg-muted/50 p-4"><div className="font-display text-lg font-bold">{session.name}</div><div className="mt-1 text-sm text-muted-foreground">{session.email}</div><Badge className="mt-3 rounded-full bg-[#F26A3D] text-white">{roleLabels[role][language]}</Badge></div><Button variant="outline" className="h-11 w-full rounded-xl" onClick={() => { setModal(null); setSession(null); }}>Sign out of demo</Button></div></Dialog>}
-    {authOpen && <AuthDialog mode={authMode} role={authRole} language={language} name={authName} email={authEmail} password={authPassword} setName={setAuthName} setEmail={setAuthEmail} setPassword={setAuthPassword} setRole={setAuthRole} onModeChange={setAuthMode} onClose={() => setAuthOpen(false)} onSubmit={submitAuth} onDemo={signInDemo} />}
+    {authOpen && <AuthDialog mode={authMode} role={authRole} language={language} name={authName} email={authEmail} password={authPassword} setName={setAuthName} setEmail={setAuthEmail} setPassword={setAuthPassword} setRole={setAuthRole} onModeChange={(nextMode) => { window.history.pushState({ mila: nextMode }, "", nextMode === "register" ? "#register" : "#signin"); setAuthMode(nextMode); }} onClose={() => { window.history.pushState({ mila: "landing" }, "", "/"); setAuthOpen(false); }} onSubmit={submitAuth} onDemo={signInDemo} />}
   </div>;
 }
 
